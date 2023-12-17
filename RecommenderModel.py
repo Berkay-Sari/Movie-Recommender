@@ -1,13 +1,11 @@
 import pyspark.sql.functions as sql_func
 from pyspark.sql.types import *
-from pyspark.ml.recommendation import ALS, ALSModel
+from pyspark.ml.recommendation import ALS
 from pyspark.context import SparkContext
 from pyspark.sql.session import SparkSession
-from pyspark.mllib.evaluation import RegressionMetrics, RankingMetrics
-from pyspark.ml.evaluation import RegressionEvaluator
 import threading
 
-sc = SparkContext('local[5]', 'Movie Recommender')
+sc = SparkContext('local[4]', 'Movie Recommender')
 sc.setLogLevel("ERROR")
 spark = SparkSession(sc)
 class _RecommenderModel:
@@ -19,7 +17,7 @@ class _RecommenderModel:
             StructField('timestamp',IntegerType(), False)
         ])
         self.df = spark.read.csv(
-            'ratings_small.csv', header=True, schema=self.data_schema
+            'ratings.csv', header=True, schema=self.data_schema
         ).cache()
         self.thread = None
         self.model = self._train()
@@ -59,11 +57,14 @@ class _RecommenderModel:
         return self.model.recommendForUserSubset(self.df.filter(sql_func.col("userId").isin(users)), numItems=numItems)
     
     def add_new_record(self, movieId, rating):
-        userId = 3333089
+        userId = 9999999
         new_rating_row = Row(userId=userId, movieId=movieId, rating=rating, timestamp=0)
         self.df = self.df.union(spark.createDataFrame([new_rating_row]))
-    def recommend_for_new_user(self, user, numItems=1):
+        
+    def recommend_for_new_user(self, numItems=1):
         self.model = self._train()
-        return self.model.recommendForUserSubset(self.df.filter(self.df.userId == user), numItems=numItems)
+        recommendations = self.model.recommendForUserSubset(self.df.filter(self.df.userId == 9999999), numItems=numItems)
+        self.df = self.df.filter(self.df.userId != 9999999)
+        return recommendations
     
 Recommender = _RecommenderModel()
